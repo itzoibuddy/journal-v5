@@ -1,104 +1,85 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
-// Use SQLite for local development, PostgreSQL for production
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// User model with subscription readiness
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String?
-  image         String?
-  password      String?  // For credentials login
-  emailVerified DateTime?
-  mobile        String?  @unique // Mobile number for OTP verification
-  mobileVerified DateTime? // Mobile verification timestamp
-  role          String   @default("TRADER") // TRADER, ADMIN, SUPER_ADMIN
-  status        String   @default("ACTIVE") // ACTIVE, SUSPENDED, DELETED
-  
-  // Profile fields
-  bio           String?
-  timezone      String?   @default("UTC")
-  defaultRiskRatio Float? @default(2.0)
-  tradingExperience String? // "BEGINNER", "INTERMEDIATE", "ADVANCED"
-  
-  // Subscription fields (for future)
-  subscriptionStatus String @default("FREE") // FREE, ACTIVE, PAST_DUE, CANCELED, EXPIRED
-  subscriptionPlan   String?            @default("free")
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  name               String?
+  image              String?
+  password           String?
+  emailVerified      DateTime?
+  mobile             String?   @unique
+  mobileVerified     DateTime?
+  role               String    @default("TRADER")
+  status             String    @default("ACTIVE")
+  bio                String?
+  timezone           String?   @default("UTC")
+  defaultRiskRatio   Float?    @default(2.0)
+  tradingExperience  String?
+  subscriptionStatus String    @default("FREE")
+  subscriptionPlan   String?   @default("free")
   subscriptionEnd    DateTime?
-  tradeLimit         Int?               @default(50) // Free tier limit
-  
-  // Relations
-  trades        Trade[]
-  accounts      Account[]
-  sessions      Session[]
-  
-  // Tracking
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  lastLoginAt   DateTime?
-  
+  tradeLimit         Int?      @default(50)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  lastLoginAt        DateTime?
+  trades             Trade[]
+  accounts           Account[]
+  sessions           Session[]
+  tradingAccounts    TradingAccount[]
+
   @@map("users")
 }
 
-// Using String instead of enums for SQLite compatibility
-
-// Enhanced Trade model
 model Trade {
-  id              Int      @id @default(autoincrement())
-  symbol          String
-  type            String   // "LONG" or "SHORT"
-  instrumentType  String   @default("STOCK") // "STOCK", "FUTURES", "OPTIONS"
-  entryPrice      Float
-  exitPrice       Float?
-  quantity        Float
-  strikePrice     Float?   // For options
-  expiryDate      DateTime? // For futures and options
-  optionType      String?  // "CALL" or "PUT" for options
-  premium         Float?   // For options
-  entryDate       DateTime
-  exitDate        DateTime?
-  profitLoss      Float?
-  notes           String?
-  sector          String?
-  
-  // New fields for enhanced features
-  strategy        String?  // Strategy name/tag
-  setupImageUrl   String?  // URL to trade setup screenshot
-  setupDescription String? // Description of the trade setup
-  preTradeEmotion String?  // Emotional state before trade
-  postTradeEmotion String? // Emotional state after trade
-  tradeConfidence Int?     // Confidence level (1-10)
-  confidenceLevel Int?     // Alternative field name for confidence (1-10)
-  tradeRating     Int?     // Self-rating of trade execution (1-10)
-  rating          Int?     // Alternative field name for rating (1-5)
-  lessons         String?  // Lessons learned from the trade
-  lessonsLearned  String?  // Alternative field name for lessons learned
-  riskRewardRatio Float?   // Planned risk-reward ratio
-  stopLoss        Float?   // Initial stop loss price
-  targetPrice     Float?   // Initial target price
-  timeFrame       String?  // Time frame used for analysis (e.g., "5m", "1h", "Daily")
-  marketCondition String?  // Overall market condition (e.g., "Bullish", "Bearish", "Sideways")
-  
-  // User relation
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Demo/Real trade flag
-  isDemo        Boolean  @default(false)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id               Int       @id @default(autoincrement())
+  symbol           String
+  type             String
+  instrumentType   String    @default("STOCK")
+  entryPrice       Float
+  exitPrice        Float?
+  quantity         Float
+  strikePrice      Float?
+  expiryDate       DateTime?
+  optionType       String?
+  premium          Float?
+  entryDate        DateTime
+  exitDate         DateTime?
+  profitLoss       Float?
+  notes            String?
+  sector           String?
+  strategy         String?
+  setupImageUrl    String?
+  setupDescription String?
+  preTradeEmotion  String?
+  postTradeEmotion String?
+  tradeConfidence  Int?
+  confidenceLevel  Int?
+  tradeRating      Int?
+  rating           Int?
+  lessons          String?
+  lessonsLearned   String?
+  riskRewardRatio  Float?
+  stopLoss         Float?
+  targetPrice      Float?
+  timeFrame        String?
+  marketCondition  String?
+  userId           String
+  isDemo           Boolean   @default(false)
+  isSynced         Boolean   @default(false)
+  lastSyncAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platform         String?
+  platformTradeId  String?
 
-  // Enhanced indexes for better query performance
   @@index([userId])
   @@index([userId, entryDate])
   @@index([userId, isDemo])
@@ -111,7 +92,6 @@ model Trade {
   @@index([createdAt])
 }
 
-// NextAuth required models
 model Account {
   id                String  @id @default(cuid())
   userId            String
@@ -125,8 +105,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
   @@map("accounts")
@@ -151,17 +130,16 @@ model VerificationToken {
   @@map("verificationtokens")
 }
 
-// Audit log for admin oversight
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?  // Null if system action
-  action    String   // "CREATE_TRADE", "DELETE_USER", etc.
-  resource  String   // "Trade", "User", etc.
-  resourceId String? // ID of affected resource
-  metadata  String?  // Additional context (JSON string)
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  metadata   String?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
 
   @@index([userId])
   @@index([action])
@@ -169,19 +147,41 @@ model AuditLog {
   @@map("audit_logs")
 }
 
-// OTP verification for mobile numbers
 model OTPVerification {
   id        String   @id @default(cuid())
-  mobile    String   // Mobile number
-  otp       String   // OTP code
-  purpose   String   // "REGISTRATION", "LOGIN", "PASSWORD_RESET"
+  mobile    String
+  otp       String
+  purpose   String
   verified  Boolean  @default(false)
-  attempts  Int      @default(0) // Number of verification attempts
-  expiresAt DateTime // OTP expiration time
+  attempts  Int      @default(0)
+  expiresAt DateTime
   createdAt DateTime @default(now())
-  
+
   @@index([mobile])
   @@index([mobile, purpose])
   @@index([expiresAt])
   @@map("otp_verifications")
-} 
+}
+
+model TradingAccount {
+  id          String   @id @default(cuid())
+  userId      String
+  platform    String
+  accountId   String
+  accountName String?
+  isActive    Boolean  @default(true)
+  lastSyncAt  DateTime?
+  syncStatus  String   @default("PENDING")
+  apiKey      String?
+  apiSecret   String?
+  accessToken String?
+  refreshToken String?
+  tokenExpiry DateTime?
+  config      String?
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@index([platform])
+}

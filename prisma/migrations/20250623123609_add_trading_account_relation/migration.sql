@@ -131,6 +131,28 @@ CREATE TABLE "otp_verifications" (
     CONSTRAINT "otp_verifications_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "TradingAccount" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "platform" TEXT NOT NULL,
+    "accountId" TEXT NOT NULL,
+    "accountName" TEXT,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "lastSyncAt" TIMESTAMP(3),
+    "syncStatus" TEXT NOT NULL DEFAULT 'PENDING',
+    "apiKey" TEXT,
+    "apiSecret" TEXT,
+    "accessToken" TEXT,
+    "refreshToken" TEXT,
+    "tokenExpiry" TIMESTAMP(3),
+    "config" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TradingAccount_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
 
@@ -197,6 +219,12 @@ CREATE INDEX "otp_verifications_mobile_purpose_idx" ON "otp_verifications"("mobi
 -- CreateIndex
 CREATE INDEX "otp_verifications_expiresAt_idx" ON "otp_verifications"("expiresAt");
 
+-- CreateIndex
+CREATE INDEX "TradingAccount_userId_idx" ON "TradingAccount"("userId");
+
+-- CreateIndex
+CREATE INDEX "TradingAccount_platform_idx" ON "TradingAccount"("platform");
+
 -- AddForeignKey
 ALTER TABLE "Trade" ADD CONSTRAINT "Trade_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -205,3 +233,6 @@ ALTER TABLE "accounts" ADD CONSTRAINT "accounts_userId_fkey" FOREIGN KEY ("userI
 
 -- AddForeignKey
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TradingAccount" ADD CONSTRAINT "TradingAccount_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

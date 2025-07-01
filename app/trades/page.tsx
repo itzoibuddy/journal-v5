@@ -9,6 +9,7 @@ import TradeForm from '../components/TradeForm';
 import TradeTable from '../components/TradeTable';
 import CSVImport from '../components/CSVImport';
 import TradeSummary from '../components/TradeSummary';
+import { dashboardUpdater } from '../lib/trading-platforms/dashboard-updater';
 
 // Helper function to safely convert to ISO string
 function safeToISOString(date: any): string {
@@ -66,26 +67,40 @@ export default function TradesPage() {
   const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
+  // Move loadTrades outside useEffect so it can be called from event handler
+  async function loadTrades() {
+    try {
+      setIsLoading(true);
+      const data = await getTrades();
+      setTrades(data.map(trade => convertDatesToISOString({
+        ...trade,
+        type: trade.type as 'LONG' | 'SHORT',
+        instrumentType: trade.instrumentType as 'STOCK' | 'FUTURES' | 'OPTIONS'
+      })));
+      setError(null);
+    } catch (err) {
+      setError('Failed to load trades. Please try again.');
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   useEffect(() => {
-    async function loadTrades() {
-      try {
-        setIsLoading(true);
-        const data = await getTrades();
-        setTrades(data.map(trade => convertDatesToISOString({
-          ...trade,
-          type: trade.type as 'LONG' | 'SHORT',
-          instrumentType: trade.instrumentType as 'STOCK' | 'FUTURES' | 'OPTIONS'
-        })));
-        setError(null);
-      } catch (err) {
-        setError('Failed to load trades. Please try again.');
-        console.error(err);
-      } finally {
-        setIsLoading(false);
+    loadTrades();
+  }, []);
+
+  // Listen for dashboard sync events and reload trades
+  useEffect(() => {
+    function handleDashboardUpdate(event: any) {
+      if (event.type === 'TRADE_SYNC' || event.type === 'PLATFORM_SYNC') {
+        loadTrades();
       }
     }
-    
-    loadTrades();
+    dashboardUpdater.registerComponent('trades-page', handleDashboardUpdate);
+    return () => {
+      dashboardUpdater.unregisterComponent('trades-page');
+    };
   }, []);
 
   const handleSubmitTrade = async (data: TradeFormData) => {
@@ -372,12 +387,21 @@ export default function TradesPage() {
                   </svg>
                   Add New Trade
                 </button>
+                {/* Refresh Button */}
+                <button
+                  onClick={loadTrades}
+                  className="inline-flex items-center px-4 py-3 bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-600 transition-all duration-200 shadow-md ml-2"
+                  title="Refresh trades"
+                >
+                  <svg className="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582M20 20v-5h-.581M5.635 19.364A9 9 0 104.582 9.582" />
+                  </svg>
+                  Refresh
+                </button>
               </div>
             </div>
           </div>
         </div>
-
-
 
         {/* Alert Messages */}
         {importMessage && (
