@@ -15,6 +15,7 @@ import {
   Tooltip,
   Legend,
   ChartData,
+  Filler,
 } from 'chart.js';
 import { Trade } from './types/Trade';
 
@@ -25,7 +26,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  Filler
 );
 
 // Color constants for chart
@@ -455,6 +457,37 @@ export default function HomePage() {
                     </div>
                   </div>
                 ))}
+                
+                {/* Current Streak */}
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 animate-fade-in-up">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Current Streak</p>
+                      <p className={`text-lg font-bold ${
+                        trades.filter(t => t.profitLoss && t.profitLoss > 0).length > trades.filter(t => t.profitLoss && t.profitLoss < 0).length 
+                          ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {trades.length > 0 ? (
+                          trades.filter(t => t.profitLoss && t.profitLoss > 0).length > trades.filter(t => t.profitLoss && t.profitLoss < 0).length 
+                            ? `${trades.slice(-5).filter(t => t.profitLoss && t.profitLoss > 0).length}W` 
+                            : `${trades.slice(-5).filter(t => t.profitLoss && t.profitLoss < 0).length}L`
+                        ) : '0'}
+                      </p>
+                    </div>
+                    <span className="text-2xl">🔥</span>
+                  </div>
+                </div>
+
+                {/* Risk Level */}
+                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 animate-fade-in-up">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600 mb-1">Risk Level</p>
+                      <p className="text-lg font-bold text-yellow-600">Medium</p>
+                    </div>
+                    <span className="text-2xl">⚠️</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

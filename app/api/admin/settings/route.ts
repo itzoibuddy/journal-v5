@@ -4,6 +4,8 @@ import { authOptions } from '../../auth/[...nextauth]/route'
 import { prisma } from '../../../lib/db'
 import { z } from 'zod'
 
+export const dynamic = 'force-dynamic'
+
 // Mock settings storage (in production, you'd store this in database)
 const defaultSettings = {
   maintenanceMode: false,

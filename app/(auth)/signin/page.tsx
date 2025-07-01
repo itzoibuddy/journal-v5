@@ -14,6 +14,8 @@ export default function SignIn() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isLoading) return // Prevent double submission
+    
     setIsLoading(true)
     setError('')
 
@@ -26,27 +28,59 @@ export default function SignIn() {
 
       if (result?.error) {
         setError('Invalid email or password')
+        // Show error toast
+        const errorEvent = new CustomEvent('showToast', {
+          detail: {
+            message: 'Invalid email or password. Please try again.',
+            type: 'error'
+          }
+        });
+        window.dispatchEvent(errorEvent);
       } else {
-        // Refresh session and redirect
-        const session = await getSession()
-        if (session) {
+        // Show success toast
+        const successEvent = new CustomEvent('showToast', {
+          detail: {
+            message: 'Successfully signed in! Redirecting...',
+            type: 'success'
+          }
+        });
+        window.dispatchEvent(successEvent);
+        
+        // Small delay to show the success message before redirect
+        setTimeout(() => {
           router.push('/')
           router.refresh()
-        }
+        }, 1000);
       }
     } catch (error) {
-      setError('An error occurred. Please try again.')
+      setError('An unexpected error occurred. Please try again.')
+      const errorEvent = new CustomEvent('showToast', {
+        detail: {
+          message: 'An unexpected error occurred. Please try again.',
+          type: 'error'
+        }
+      });
+      window.dispatchEvent(errorEvent);
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
+    if (isLoading) return // Prevent double submission
+    
     setIsLoading(true)
     try {
       await signIn('google', { callbackUrl: '/' })
     } catch (error) {
       setError('Google sign-in failed')
+      const errorEvent = new CustomEvent('showToast', {
+        detail: {
+          message: 'Google sign-in failed. Please try again.',
+          type: 'error'
+        }
+      });
+      window.dispatchEvent(errorEvent);
       setIsLoading(false)
     }
   }

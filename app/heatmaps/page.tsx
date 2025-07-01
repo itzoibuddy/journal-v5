@@ -4,6 +4,22 @@ import { useState, useEffect, useMemo } from 'react';
 import { Trade } from '@/app/types/Trade';
 import { format, parseISO, getDay, getHours, startOfWeek, addDays, eachDayOfInterval, startOfMonth, endOfMonth } from 'date-fns';
 
+// Market hours configuration for different markets
+const MARKET_HOURS = {
+  indian: {
+    name: 'Indian Markets',
+    hours: [9, 10, 11, 12, 13, 14, 15], // 9:00 AM to 3:00 PM (main session)
+    extendedHours: [16, 17, 18, 19, 20, 21], // 4:00 PM to 9:00 PM (after-market)
+    commodityHours: [22, 23], // 10:00 PM to 11:00 PM (commodity extended)
+    allHours: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23] // All trading hours
+  },
+  global: {
+    name: 'Global Markets (24/7)',
+    hours: Array.from({ length: 24 }, (_, i) => i), // All 24 hours
+    allHours: Array.from({ length: 24 }, (_, i) => i)
+  }
+};
+
 // Enhanced color scale for better visual impact
 const getHeatmapColor = (value: number, max: number, min: number, type: 'pnl' | 'winrate' | 'volume' = 'pnl') => {
   if (value === 0 || (max === 0 && min === 0)) return 'rgb(243, 244, 246)'; // gray-100
@@ -35,6 +51,7 @@ export default function HeatmapsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<string>('month');
   const [selectedHeatmap, setSelectedHeatmap] = useState<string>('hourly');
+  const [marketType, setMarketType] = useState<'indian' | 'global'>('indian');
 
   useEffect(() => {
     const fetchTrades = async () => {
@@ -70,10 +87,13 @@ export default function HeatmapsPage() {
     return trades.filter(trade => new Date(trade.entryDate) >= startDate);
   }, [trades, timeframe]);
 
-  // Hourly Performance Heatmap
+  // Hourly Performance Heatmap - filtered by market hours
   const hourlyData = useMemo(() => {
-    const hours = Array.from({ length: 24 }, (_, i) => ({
-      hour: i,
+    const selectedMarket = MARKET_HOURS[marketType];
+    const relevantHours = selectedMarket.allHours;
+    
+    const hours = relevantHours.map(hour => ({
+      hour,
       trades: 0,
       profitLoss: 0,
       winRate: 0,
@@ -82,10 +102,14 @@ export default function HeatmapsPage() {
 
     filteredTrades.forEach(trade => {
       const hour = getHours(new Date(trade.entryDate));
-      hours[hour].trades += 1;
-      hours[hour].profitLoss += trade.profitLoss || 0;
-      if ((trade.profitLoss || 0) > 0) {
-        hours[hour].wins += 1;
+      const hourIndex = relevantHours.indexOf(hour);
+      
+      if (hourIndex !== -1) {
+        hours[hourIndex].trades += 1;
+        hours[hourIndex].profitLoss += trade.profitLoss || 0;
+        if ((trade.profitLoss || 0) > 0) {
+          hours[hourIndex].wins += 1;
+        }
       }
     });
 
@@ -94,17 +118,20 @@ export default function HeatmapsPage() {
     });
 
     return hours;
-  }, [filteredTrades]);
+  }, [filteredTrades, marketType]);
 
-  // Day-Hour Matrix Heatmap
+  // Day-Hour Matrix Heatmap - filtered by market hours
   const dayHourMatrix = useMemo(() => {
+    const selectedMarket = MARKET_HOURS[marketType];
+    const relevantHours = selectedMarket.allHours;
     const matrix: any[][] = [];
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     
     for (let day = 0; day < 7; day++) {
       matrix[day] = [];
-      for (let hour = 0; hour < 24; hour++) {
-        matrix[day][hour] = {
+      for (let i = 0; i < relevantHours.length; i++) {
+        const hour = relevantHours[i];
+        matrix[day][i] = {
           day: days[day],
           hour,
           trades: 0,
@@ -119,11 +146,14 @@ export default function HeatmapsPage() {
       const date = new Date(trade.entryDate);
       const day = getDay(date);
       const hour = getHours(date);
+      const hourIndex = relevantHours.indexOf(hour);
       
-      matrix[day][hour].trades += 1;
-      matrix[day][hour].profitLoss += trade.profitLoss || 0;
-      if ((trade.profitLoss || 0) > 0) {
-        matrix[day][hour].wins += 1;
+      if (hourIndex !== -1) {
+        matrix[day][hourIndex].trades += 1;
+        matrix[day][hourIndex].profitLoss += trade.profitLoss || 0;
+        if ((trade.profitLoss || 0) > 0) {
+          matrix[day][hourIndex].wins += 1;
+        }
       }
     });
 
@@ -134,8 +164,8 @@ export default function HeatmapsPage() {
       });
     });
 
-    return matrix;
-  }, [filteredTrades]);
+    return { matrix, relevantHours };
+  }, [filteredTrades, marketType]);
 
   // Monthly Calendar Heatmap
   const monthlyCalendar = useMemo(() => {
@@ -169,12 +199,25 @@ export default function HeatmapsPage() {
   // Strategy Performance Matrix
   const strategyMatrix = useMemo(() => {
     const strategies = [...new Set(filteredTrades.map(t => t.strategy || 'No Strategy'))];
-    const timeSlots = ['Morning (9-12)', 'Afternoon (12-15)', 'Evening (15-18)'];
+    const timeSlots = marketType === 'indian' 
+      ? ['Market Open (9-12)', 'Midday (12-15)', 'Market Close (15-18)', 'After Hours (18-23)']
+      : ['Early Morning (0-6)', 'Morning (6-12)', 'Afternoon (12-18)', 'Evening (18-24)'];
     
     const matrix = strategies.map(strategy => {
       return timeSlots.map(slot => {
-        const [start, end] = slot.includes('9-12') ? [9, 12] : 
-                            slot.includes('12-15') ? [12, 15] : [15, 18];
+        let start: number, end: number;
+        
+        if (marketType === 'indian') {
+          if (slot.includes('9-12')) [start, end] = [9, 12];
+          else if (slot.includes('12-15')) [start, end] = [12, 15];
+          else if (slot.includes('15-18')) [start, end] = [15, 18];
+          else [start, end] = [18, 24]; // After hours
+        } else {
+          if (slot.includes('0-6')) [start, end] = [0, 6];
+          else if (slot.includes('6-12')) [start, end] = [6, 12];
+          else if (slot.includes('12-18')) [start, end] = [12, 18];
+          else [start, end] = [18, 24];
+        }
         
         const slotTrades = filteredTrades.filter(trade => {
           const hour = getHours(new Date(trade.entryDate));
@@ -196,7 +239,7 @@ export default function HeatmapsPage() {
     });
 
     return { strategies, timeSlots, matrix };
-  }, [filteredTrades]);
+  }, [filteredTrades, marketType]);
 
   // Risk-Adjusted Performance
   const riskAdjustedData = useMemo(() => {
@@ -294,6 +337,15 @@ export default function HeatmapsPage() {
                 <option value="strategy">Strategy Performance</option>
                 <option value="risk">Risk-Adjusted</option>
               </select>
+              
+              <select
+                value={marketType}
+                onChange={(e) => setMarketType(e.target.value as 'indian' | 'global')}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="indian">Indian Market Hours (9 AM - 11 PM)</option>
+                <option value="global">Global Markets (24/7)</option>
+              </select>
             </div>
             
             <div className="text-sm text-gray-600">
@@ -306,7 +358,14 @@ export default function HeatmapsPage() {
         {selectedHeatmap === 'hourly' && (
           <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200/60 p-6 mb-8">
             <h3 className="text-xl font-bold text-gray-900 mb-6">📈 Hourly Trading Performance</h3>
-            <p className="text-gray-600 mb-6">Discover your most profitable trading hours</p>
+            <p className="text-gray-600 mb-6">
+              Discover your most profitable trading hours
+              {marketType === 'indian' && (
+                <span className="block text-sm text-blue-600 mt-1">
+                  Showing Indian market hours: Regular Session (9 AM - 3 PM), After Hours (4 PM - 11 PM)
+                </span>
+              )}
+            </p>
             
             <div className="grid grid-cols-8 lg:grid-cols-12 gap-2 mb-6">
               {hourlyData.map((hour, index) => {
@@ -374,15 +433,15 @@ export default function HeatmapsPage() {
                 <thead>
                   <tr>
                     <th className="text-left p-2 text-sm font-medium text-gray-600">Day</th>
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <th key={i} className="text-center p-1 text-xs text-gray-500">{i}</th>
+                    {dayHourMatrix.relevantHours.map((hour, index) => (
+                      <th key={index} className="text-center p-1 text-xs text-gray-500">{hour}:00</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {dayHourMatrix.map((dayRow, dayIndex) => {
+                  {dayHourMatrix.matrix.map((dayRow, dayIndex) => {
                     const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayIndex];
-                    const allCells = dayHourMatrix.flat();
+                    const allCells = dayHourMatrix.matrix.flat();
                     const { min, max } = getMinMax(allCells, 'profitLoss');
                     
                     return (
@@ -393,7 +452,7 @@ export default function HeatmapsPage() {
                             <div
                               className="w-6 h-6 rounded border border-gray-200 cursor-pointer hover:scale-125 transition-transform"
                               style={{ backgroundColor: getHeatmapColor(cell.profitLoss, max, min, 'pnl') }}
-                              title={`${dayName} ${hourIndex}:00 - ${cell.trades} trades, ₹${cell.profitLoss.toLocaleString('en-IN')}`}
+                              title={`${dayName} ${dayHourMatrix.relevantHours[hourIndex]}:00 - ${cell.trades} trades, ₹${cell.profitLoss.toLocaleString('en-IN')}`}
                             />
                           </td>
                         ))}
@@ -564,14 +623,13 @@ export default function HeatmapsPage() {
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-200">
               <h4 className="font-semibold text-green-800 mb-2">🌟 Optimal Trading Window</h4>
               {(() => {
-                const bestCell = dayHourMatrix.flat().reduce((best, current) => 
+                const bestCell = dayHourMatrix.matrix.flat().reduce((best, current) => 
                   current.profitLoss > best.profitLoss ? current : best
                 );
-                const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
                 return (
                   <div>
                     <div className="text-lg font-bold text-green-700">
-                      {days[bestCell.day]} at {bestCell.hour}:00
+                      {bestCell.day} at {bestCell.hour}:00
                     </div>
                     <div className="text-sm text-green-600 mt-1">
                       ₹{bestCell.profitLoss.toLocaleString('en-IN')} • {bestCell.winRate.toFixed(1)}% win rate

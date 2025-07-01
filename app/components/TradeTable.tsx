@@ -1,17 +1,27 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react';
 import Pagination from './Pagination';
 import { Trade } from '../types/Trade';
+import { getLotSize as getSymbolLotSize, parseNSEOptionsSymbol, isOptionsSymbol } from '../lib/symbolParser';
 
-// Helper function to calculate lot size for a symbol
+// Helper function to calculate lot size for a symbol (memoized)
 const getLotSize = (symbol: string): number => {
-  if (symbol === 'NIFTY') return 75;
-  if (symbol === 'SENSEX') return 20;
-  return 1; // Default case for other symbols
+  if (!symbol) return 1;
+  
+  // If it's an options symbol, parse it to get the underlying
+  if (isOptionsSymbol(symbol)) {
+    const parsed = parseNSEOptionsSymbol(symbol);
+    if (parsed.isValid) {
+      return getSymbolLotSize(parsed.underlying);
+    }
+  }
+  
+  // For direct underlying symbols or other cases
+  return getSymbolLotSize(symbol);
 };
 
-// Helper function to format quantity as lots for display
+// Memoized helper function to format quantity as lots for display
 const formatQuantityAsLots = (quantity: number, symbol: string): string => {
   const lotSize = getLotSize(symbol);
   if (lotSize <= 1) return quantity.toString();
@@ -20,7 +30,7 @@ const formatQuantityAsLots = (quantity: number, symbol: string): string => {
   return `${quantity} (${lots} lots)`;
 };
 
-// Helper function to format currency with 2 decimal places
+// Memoized helper function to format currency with 2 decimal places
 const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return '-';
   return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -41,6 +51,138 @@ interface TradeTableProps {
   onViewDetails: (index: number) => void;
   isDeleting?: boolean;
 }
+
+// Memoized TradeRow component to prevent unnecessary re-renders
+const TradeRow = memo(({ trade, index, visibleColumns, onEdit, onDelete, onViewDetails, showDeleteIndex, setShowDeleteIndex, isDeleting }: any) => {
+  const handleEdit = useCallback(() => onEdit(index), [onEdit, index]);
+  const handleDelete = useCallback(() => onDelete(index), [onDelete, index]);
+  const handleViewDetails = useCallback(() => onViewDetails(index), [onViewDetails, index]);
+  const handleShowDelete = useCallback(() => setShowDeleteIndex(index), [setShowDeleteIndex, index]);
+  const handleCancelDelete = useCallback(() => setShowDeleteIndex(null), [setShowDeleteIndex]);
+
+  return (
+    <tr className="hover:bg-gray-50 transition-colors duration-150 ease-in-out">
+      {visibleColumns.entryDate && (
+        <td className="py-3 px-4 text-sm text-gray-700">
+          {new Date(trade.entryDate).toLocaleDateString('en-IN')}
+        </td>
+      )}
+      {visibleColumns.symbol && (
+        <td className="py-3 px-4 text-sm font-medium text-gray-900">
+          {trade.symbol}
+        </td>
+      )}
+      {visibleColumns.type && (
+        <td className="py-3 px-4 text-sm">
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+            trade.type === 'LONG' 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {tradeTypeIcon(trade.type)}
+            {trade.type}
+          </span>
+        </td>
+      )}
+      {visibleColumns.strategy && (
+        <td className="py-3 px-4 text-sm text-gray-600">
+          {trade.strategy || '-'}
+        </td>
+      )}
+      {visibleColumns.entryPrice && (
+        <td className="py-3 px-4 text-sm text-gray-700">
+          ₹{formatCurrency(trade.entryPrice)}
+        </td>
+      )}
+      {visibleColumns.exitPrice && (
+        <td className="py-3 px-4 text-sm text-gray-700">
+          {trade.exitPrice ? `₹${formatCurrency(trade.exitPrice)}` : '-'}
+        </td>
+      )}
+      {visibleColumns.quantity && (
+        <td className="py-3 px-4 text-sm text-gray-700">
+          {formatQuantityAsLots(trade.quantity, trade.symbol)}
+        </td>
+      )}
+      {visibleColumns.strikePrice && (
+        <td className="py-3 px-4 text-sm text-gray-700">
+          {trade.strikePrice ? `₹${formatCurrency(trade.strikePrice)}` : '-'}
+        </td>
+      )}
+      {visibleColumns.profitLoss && (
+        <td className="py-3 px-4 text-sm">
+          <span className={`font-medium ${
+            (trade.profitLoss || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
+            ₹{formatCurrency(trade.profitLoss)}
+          </span>
+        </td>
+      )}
+      {visibleColumns.rating && (
+        <td className="py-3 px-4 text-sm text-gray-700">
+          {trade.tradeRating ? (
+            <div className="flex">
+              {[...Array(5)].map((_, i) => (
+                <span
+                  key={i}
+                  className={`text-sm ${
+                    i < trade.tradeRating ? 'text-yellow-400' : 'text-gray-300'
+                  }`}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+          ) : '-'}
+        </td>
+      )}
+      {visibleColumns.actions && (
+        <td className="py-3 px-4 text-sm text-right">
+          <div className="flex items-center justify-end space-x-2">
+            {showDeleteIndex === index ? (
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="text-red-600 hover:text-red-900 text-xs font-medium disabled:opacity-50"
+                >
+                  {isDeleting ? 'Deleting...' : 'Confirm'}
+                </button>
+                <button
+                  onClick={handleCancelDelete}
+                  className="text-gray-600 hover:text-gray-900 text-xs font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={handleViewDetails}
+                  className="text-blue-600 hover:text-blue-900 text-xs font-medium"
+                >
+                  View
+                </button>
+                <button
+                  onClick={handleEdit}
+                  className="text-indigo-600 hover:text-indigo-900 text-xs font-medium"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={handleShowDelete}
+                  className="text-red-600 hover:text-red-900 text-xs font-medium"
+                >
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
+        </td>
+      )}
+    </tr>
+  );
+});
 
 export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, isDeleting = false }: TradeTableProps) {
   const [showDeleteIndex, setShowDeleteIndex] = useState<number | null>(null);
@@ -65,7 +207,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
   // Reference for the column selector dropdown
   const columnSelectorRef = useRef<HTMLDivElement>(null);
   
-  // Close the column selector when clicking outside
+  // Close the column selector when clicking outside (memoized)
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (columnSelectorRef.current && !columnSelectorRef.current.contains(event.target as Node)) {
@@ -79,25 +221,27 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
     };
   }, []);
   
-  // Get current trades for pagination
-  const indexOfLastTrade = currentPage * tradesPerPage;
-  const indexOfFirstTrade = indexOfLastTrade - tradesPerPage;
-  const currentTrades = trades.slice(indexOfFirstTrade, indexOfLastTrade);
-  const totalPages = Math.ceil(trades.length / tradesPerPage);
+  // Memoized pagination calculations
+  const paginationData = useMemo(() => {
+    const indexOfLastTrade = currentPage * tradesPerPage;
+    const indexOfFirstTrade = indexOfLastTrade - tradesPerPage;
+    const currentTrades = trades.slice(indexOfFirstTrade, indexOfLastTrade);
+    const totalPages = Math.ceil(trades.length / tradesPerPage);
+    
+    return { currentTrades, totalPages, indexOfFirstTrade };
+  }, [trades, currentPage, tradesPerPage]);
 
-  // Change page
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
+  // Memoized callback functions
+  const paginate = useCallback((pageNumber: number) => setCurrentPage(pageNumber), []);
   
-  // Toggle column visibility
-  const toggleColumn = (column: string) => {
+  const toggleColumn = useCallback((column: string) => {
     setVisibleColumns(prev => ({
       ...prev,
       [column]: !prev[column]
     }));
-  };
+  }, []);
   
-  // Reset column visibility to default
-  const resetColumns = () => {
+  const resetColumns = useCallback(() => {
     setVisibleColumns({
       entryDate: true,
       symbol: true,
@@ -111,7 +255,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
       rating: true,
       actions: true
     });
-  };
+  }, []);
 
   return (
     <div className="bg-white shadow rounded-xl p-6">
@@ -258,7 +402,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
               )}
               
               <span className="ml-4 text-sm text-gray-500">
-                Showing {indexOfFirstTrade + 1}-{Math.min(indexOfLastTrade, trades.length)} of {trades.length} trades
+                Showing {paginationData.indexOfFirstTrade + 1}-{Math.min(paginationData.indexOfFirstTrade + tradesPerPage, trades.length)} of {trades.length} trades
               </span>
             </div>
             
@@ -356,7 +500,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
                   </tr>
                 </thead>
                 <tbody>
-                  {currentTrades.map((trade, index) => {
+                  {paginationData.currentTrades.map((trade, index) => {
                     const isProfit = trade.profitLoss && trade.profitLoss > 0;
                     const isLoss = trade.profitLoss && trade.profitLoss < 0;
                     
@@ -400,7 +544,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
                           {trade.symbol}
                           {trade.instrumentType === 'OPTIONS' && (
                             <span className="ml-1 text-xs text-gray-500">
-                              {trade.optionType} {trade.strikePrice && `@ ₹${trade.strikePrice.toLocaleString('en-IN')}`}
+                              {trade.optionType} {trade.strikePrice && `@ ₹${trade.strikePrice.toLocaleString('en-US')}`}
                             </span>
                           )}
                         </td>
@@ -492,25 +636,25 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
                           <div className="flex gap-2">
                             <button
                               className="inline-flex items-center px-3 py-1.5 text-xs bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-100 hover:to-blue-100 text-indigo-700 border border-indigo-200 rounded-lg transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5"
-                              onClick={() => onEdit(indexOfFirstTrade + index)}
+                              onClick={() => onEdit(paginationData.indexOfFirstTrade + index)}
                             >
                               ✏️ Edit
                             </button>
                             <button
                               className="inline-flex items-center px-3 py-1.5 text-xs bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 text-blue-700 border border-blue-200 rounded-lg transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5"
-                              onClick={() => onViewDetails(indexOfFirstTrade + index)}
+                              onClick={() => onViewDetails(paginationData.indexOfFirstTrade + index)}
                             >
                               👁️ Details
                             </button>
                             <button
                               className="inline-flex items-center px-3 py-1.5 text-xs bg-gradient-to-r from-red-50 to-pink-50 hover:from-red-100 hover:to-pink-100 text-red-700 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md transform hover:-translate-y-0.5"
-                              onClick={() => setShowDeleteIndex(indexOfFirstTrade + index)}
+                              onClick={() => setShowDeleteIndex(paginationData.indexOfFirstTrade + index)}
                               disabled={isDeleting}
                             >
                               🗑️ Delete
                             </button>
                           </div>
-                          {showDeleteIndex === indexOfFirstTrade + index && (
+                          {showDeleteIndex === paginationData.indexOfFirstTrade + index && (
                             <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-lg">
                               <span className="text-sm text-red-700 font-medium block mb-2">
                                 Delete {trade.symbol} trade?
@@ -519,8 +663,8 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
                                 <button
                                   className="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-700 text-white border border-red-600 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center transition-colors"
                                   onClick={() => {
-                                    console.log(`UI: Confirming delete for trade index ${indexOfFirstTrade + index}`);
-                                    onDelete(indexOfFirstTrade + index);
+                                    console.log(`UI: Confirming delete for trade index ${paginationData.indexOfFirstTrade + index}`);
+                                    onDelete(paginationData.indexOfFirstTrade + index);
                                     setShowDeleteIndex(null);
                                   }}
                                   disabled={isDeleting}
@@ -561,7 +705,7 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
           {trades.length > tradesPerPage && (
             <Pagination
               currentPage={currentPage}
-              totalPages={totalPages}
+              totalPages={paginationData.totalPages}
               onPageChange={paginate}
             />
           )}

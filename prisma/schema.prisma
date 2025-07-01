@@ -8,31 +8,31 @@ datasource db {
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  email              String    @unique
+  id                 String           @id @default(cuid())
+  email              String           @unique
   name               String?
   image              String?
   password           String?
   emailVerified      DateTime?
-  mobile             String?   @unique
+  mobile             String?          @unique
   mobileVerified     DateTime?
-  role               String    @default("TRADER")
-  status             String    @default("ACTIVE")
+  role               String           @default("TRADER")
+  status             String           @default("ACTIVE")
   bio                String?
-  timezone           String?   @default("UTC")
-  defaultRiskRatio   Float?    @default(2.0)
+  timezone           String?          @default("UTC")
+  defaultRiskRatio   Float?           @default(2.0)
   tradingExperience  String?
-  subscriptionStatus String    @default("FREE")
-  subscriptionPlan   String?   @default("free")
+  subscriptionStatus String           @default("FREE")
+  subscriptionPlan   String?          @default("free")
   subscriptionEnd    DateTime?
-  tradeLimit         Int?      @default(50)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  tradeLimit         Int?             @default(50)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
   lastLoginAt        DateTime?
   trades             Trade[]
+  tradingAccounts    TradingAccount[]
   accounts           Account[]
   sessions           Session[]
-  tradingAccounts    TradingAccount[]
 
   @@map("users")
 }
@@ -72,13 +72,13 @@ model Trade {
   marketCondition  String?
   userId           String
   isDemo           Boolean   @default(false)
-  isSynced         Boolean   @default(false)
-  lastSyncAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   platform         String?
   platformTradeId  String?
+  isSynced         Boolean   @default(false)
+  lastSyncAt       DateTime?
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, entryDate])
@@ -164,23 +164,23 @@ model OTPVerification {
 }
 
 model TradingAccount {
-  id          String   @id @default(cuid())
-  userId      String
-  platform    String
-  accountId   String
-  accountName String?
-  isActive    Boolean  @default(true)
-  lastSyncAt  DateTime?
-  syncStatus  String   @default("PENDING")
-  apiKey      String?
-  apiSecret   String?
-  accessToken String?
+  id           String    @id @default(cuid())
+  userId       String
+  platform     String
+  accountId    String
+  accountName  String?
+  isActive     Boolean   @default(true)
+  lastSyncAt   DateTime?
+  syncStatus   String    @default("PENDING")
+  apiKey       String?
+  apiSecret    String?
+  accessToken  String?
   refreshToken String?
-  tokenExpiry DateTime?
-  config      String?
-  user        User     @relation(fields: [userId], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  tokenExpiry  DateTime?
+  config       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  user         User      @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([platform])

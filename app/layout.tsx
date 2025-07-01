@@ -5,6 +5,7 @@ import MobileMenuToggle from "./components/MobileMenuToggle";
 import PerformanceMonitor from "./components/PerformanceMonitor";
 import SessionProvider from "./components/SessionProvider";
 import ClientLayout from "./components/ClientLayout";
+import { GlobalToastManager } from "./components/Toast";
 
 export const metadata: Metadata = {
   title: "Trading Journal",
@@ -26,6 +27,7 @@ export default function RootLayout({
           </ClientLayout>
           <MobileMenuToggle />
           <PerformanceMonitor />
+          <GlobalToastManager />
         </SessionProvider>
       </body>
     </html>

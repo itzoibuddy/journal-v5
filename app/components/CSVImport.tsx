@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Papa from 'papaparse';
 import DOMPurify from 'dompurify';
 import { TradeFormData } from '../actions/trade';
+import { getLotSize as getSymbolLotSize, parseNSEOptionsSymbol, isOptionsSymbol } from '../lib/symbolParser';
 
 // Helper function for safe toISOString conversion
 function safeToISOString(date: any): string {
@@ -14,16 +15,23 @@ function safeToISOString(date: any): string {
 
 // Helper function to convert lots to quantity based on symbol
 const convertLotsToQuantity = (lots: number, symbol: string): number => {
-  if (symbol === 'NIFTY') return lots * 75;
-  if (symbol === 'SENSEX') return lots * 20;
-  return lots; // Default case for other symbols
+  return lots * getSymbolLotSize(symbol);
 };
 
 // Helper function to calculate lot size for a symbol
 const getLotSize = (symbol: string): number => {
-  if (symbol === 'NIFTY') return 75;
-  if (symbol === 'SENSEX') return 20;
-  return 1; // Default case for other symbols
+  if (!symbol) return 1;
+  
+  // If it's an options symbol, parse it to get the underlying
+  if (isOptionsSymbol(symbol)) {
+    const parsed = parseNSEOptionsSymbol(symbol);
+    if (parsed.isValid) {
+      return getSymbolLotSize(parsed.underlying);
+    }
+  }
+  
+  // For direct underlying symbols or other cases
+  return getSymbolLotSize(symbol);
 };
 
 interface CSVImportProps {

@@ -71,30 +71,46 @@ export default function TradeSummary({ trades }: TradeSummaryProps) {
   
   return (
     <div className="bg-white shadow rounded-xl p-6">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-6 gap-4">
         <h2 className="text-lg font-semibold text-gray-900">Trading Performance</h2>
         
-        <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+        <div className="flex flex-wrap gap-1 bg-gray-100 rounded-lg p-1 sm:flex-nowrap">
           <button
-            className={`px-3 py-1 text-sm rounded-md ${timeFrame === 'week' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-2 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-all duration-200 whitespace-nowrap ${
+              timeFrame === 'week' 
+                ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-indigo-200' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
             onClick={() => setTimeFrame('week')}
           >
             Week
           </button>
           <button
-            className={`px-3 py-1 text-sm rounded-md ${timeFrame === 'month' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-2 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-all duration-200 whitespace-nowrap ${
+              timeFrame === 'month' 
+                ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-indigo-200' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
             onClick={() => setTimeFrame('month')}
           >
             Month
           </button>
           <button
-            className={`px-3 py-1 text-sm rounded-md ${timeFrame === 'year' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-2 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-all duration-200 whitespace-nowrap ${
+              timeFrame === 'year' 
+                ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-indigo-200' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
             onClick={() => setTimeFrame('year')}
           >
             Year
           </button>
           <button
-            className={`px-3 py-1 text-sm rounded-md ${timeFrame === 'all' ? 'bg-white shadow text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`px-2 py-1.5 text-xs sm:text-sm rounded-md font-medium transition-all duration-200 whitespace-nowrap ${
+              timeFrame === 'all' 
+                ? 'bg-white shadow-sm text-indigo-600 ring-1 ring-indigo-200' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
             onClick={() => setTimeFrame('all')}
           >
             All

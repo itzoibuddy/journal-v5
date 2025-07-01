@@ -62,6 +62,7 @@ const authOptions: NextAuthOptions = {
             name: user.name,
             image: user.image,
             role: user.role,
+            mobile: user.mobile,
           }
         } catch (error) {
           console.error('Auth error:', error)
@@ -82,6 +83,12 @@ const authOptions: NextAuthOptions = {
       if (user) {
         token.role = (user as any).role
         token.id = user.id
+        // Fetch user data to get mobile number
+        const dbUser = await prisma.user.findUnique({
+          where: { id: user.id },
+          select: { mobile: true }
+        })
+        token.mobile = dbUser?.mobile || undefined
       }
 
       // Handle session update
@@ -96,6 +103,7 @@ const authOptions: NextAuthOptions = {
       if (token && session.user) {
         (session.user as any).id = token.id as string;
         (session.user as any).role = token.role as string;
+        (session.user as any).mobile = token.mobile;
       }
       return session
     },

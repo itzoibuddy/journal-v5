@@ -191,7 +191,14 @@ export default function TradeDetailsPage() {
       await generateTradePDF(trade, userInfo);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      // Show error message in a more user-friendly way
+      const errorEvent = new CustomEvent('showToast', {
+        detail: {
+          message: 'Failed to generate PDF. Please try again.',
+          type: 'error'
+        }
+      });
+      window.dispatchEvent(errorEvent);
     } finally {
       setIsExportingPDF(false);
     }

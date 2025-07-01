@@ -534,7 +534,7 @@ export default function CalendarPage() {
                         <button
                           key={dayIdx}
                           onClick={() => handleDateClick(date)}
-                          className={`h-16 sm:h-20 border rounded-lg hover:ring-2 hover:ring-blue-300 hover:shadow-md transition-all duration-200 ${bgClass} flex flex-col items-center justify-center p-1 relative group touch-manipulation`}
+                          className={`h-16 sm:h-20 border rounded-lg hover:ring-2 hover:ring-blue-300 hover:shadow-md transition-all duration-200 ${bgClass} flex flex-col items-center justify-center p-1 relative group touch-manipulation overflow-hidden`}
                           title={count > 0 ? `${count} trades • P&L: ₹${formatNumber(pl)}` : ''}
                         >
                           <span className="font-bold text-sm sm:text-base">
@@ -542,8 +542,10 @@ export default function CalendarPage() {
                           </span>
                           {!isWeekend && !isHoliday && count > 0 && (
                             <>
-                              <span className="text-xs sm:text-sm font-medium leading-tight">
-                                ₹{formatNumber(Math.abs(pl))}
+                              <span className="text-xs sm:text-sm font-medium leading-tight truncate max-w-full px-1">
+                                ₹{Math.abs(pl) >= 1000 
+                                  ? `${(Math.abs(pl) / 1000).toFixed(1)}k` 
+                                  : formatNumber(Math.abs(pl))}
                               </span>
                               {viewMode === 'full' && (
                                 <span className="text-xs opacity-75">

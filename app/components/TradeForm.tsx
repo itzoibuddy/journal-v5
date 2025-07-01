@@ -196,19 +196,61 @@ export default function TradeForm({ initialData, onSuccess, onCancel }: TradeFor
       console.log('Form data being submitted:', data);
       console.log('Initial data ID:', initialData?.id);
       
+      // Additional client-side validation
+      if (data.entryPrice <= 0) {
+        throw new Error('Entry price must be greater than 0');
+      }
+      
+      if (data.quantity <= 0) {
+        throw new Error('Quantity must be greater than 0');
+      }
+      
+      if (data.exitPrice && data.exitPrice <= 0) {
+        throw new Error('Exit price must be greater than 0 if provided');
+      }
+      
+      if (data.exitDate && data.entryDate && new Date(data.exitDate) < new Date(data.entryDate)) {
+        throw new Error('Exit date cannot be before entry date');
+      }
+      
       if (initialData?.id !== undefined) {
         console.log('Updating trade with ID:', initialData.id);
         await updateTrade(initialData.id, data);
         console.log('Update successful');
+        // Show success toast
+        const successEvent = new CustomEvent('showToast', {
+          detail: {
+            message: 'Trade updated successfully!',
+            type: 'success'
+          }
+        });
+        window.dispatchEvent(successEvent);
       } else {
         console.log('Creating new trade');
         await createTrade(data);
         console.log('Create successful');
+        // Show success toast
+        const successEvent = new CustomEvent('showToast', {
+          detail: {
+            message: 'Trade created successfully!',
+            type: 'success'
+          }
+        });
+        window.dispatchEvent(successEvent);
       }
       onSuccess();
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('Error submitting form: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      // Show error message in a more user-friendly way
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      // Create and dispatch a custom event for error handling
+      const errorEvent = new CustomEvent('showToast', {
+        detail: {
+          message: `Failed to ${initialData?.id !== undefined ? 'update' : 'create'} trade: ${errorMessage}`,
+          type: 'error'
+        }
+      });
+      window.dispatchEvent(errorEvent);
     }
   };
 
@@ -621,6 +663,21 @@ export default function TradeForm({ initialData, onSuccess, onCancel }: TradeFor
                 placeholder="0.00"
                 readOnly
               />
+            </div>
+
+            {/* Pre-Trade Emotion */}
+            <div>
+              <label htmlFor="preTradeEmotion" className="block text-sm font-semibold text-gray-700 mb-2">Pre-Trade Emotion</label>
+              <select
+                id="preTradeEmotion"
+                {...register('preTradeEmotion')}
+                className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white/90 backdrop-blur-sm px-4 py-3 text-sm transition-all duration-300 hover:shadow-md"
+              >
+                <option value="">Select Emotion</option>
+                {PRE_TRADE_EMOTIONS.map(emotion => (
+                  <option key={emotion.value} value={emotion.value}>{emotion.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* Post-Trade Emotion */}

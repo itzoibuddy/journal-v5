@@ -179,8 +179,8 @@ export default function ProfilePage() {
             </div>
             <div className={`bg-gradient-to-br ${stats.totalPnL >= 0 ? 'from-green-50 to-emerald-50' : 'from-red-50 to-pink-50'} rounded-xl p-4`}>
               <p className="text-sm text-gray-600">Total P&L</p>
-              <p className="text-2xl font-bold text-gray-900">
-                ₹{Math.abs(stats.totalPnL).toFixed(2)}
+              <p className={`text-2xl font-bold ${stats.totalPnL >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {stats.totalPnL >= 0 ? '+' : ''}₹{stats.totalPnL.toFixed(2)}
               </p>
             </div>
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4">
