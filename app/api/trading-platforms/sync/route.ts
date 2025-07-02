@@ -5,6 +5,14 @@ import { TradingPlatformFactory } from '../../../lib/trading-platforms/factory';
 import { dashboardUpdater } from '../../../lib/trading-platforms/dashboard-updater';
 import type { SupportedPlatform } from '../../../lib/trading-platforms/factory';
 
+// Add TestResult type for testOnly diagnostics
+type TestResult = {
+  platform: string;
+  success: any;
+  message: any;
+  details: any;
+};
+
 export async function POST(request: NextRequest) {
   console.log('SYNC API ROUTE POST HIT!');
   try {
@@ -62,12 +70,7 @@ export async function POST(request: NextRequest) {
     // If testOnly is true, just test the connection and return results
     if (testOnly) {
       console.log('Test-only mode: Testing connections without syncing trades');
-      const testResults: {
-        platform: string;
-        success: any;
-        message: any;
-        details: any;
-      }[] = [];
+      const testResults: TestResult[] = [];
       
       for (const account of accounts) {
         try {
