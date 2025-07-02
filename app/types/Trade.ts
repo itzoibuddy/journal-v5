@@ -36,6 +36,10 @@ export interface Trade {
 
   createdAt?: string | Date;
   updatedAt?: string | Date;
+
+  // Added for sync and dashboard
+  isSynced?: boolean;
+  lastSyncAt?: string | Date | null;
 }
 
 export type TradeFormData = Trade;
@@ -79,4 +83,8 @@ export interface ApiTrade {
 
   createdAt?: string;
   updatedAt?: string;
+
+  // Added for sync and dashboard
+  isSynced?: boolean;
+  lastSyncAt?: string | null;
 } 

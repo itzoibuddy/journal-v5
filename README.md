@@ -71,6 +71,12 @@ This application has been updated with critical production-ready features:
    
    # API Security
    ALLOWED_ORIGINS="http://localhost:3000"
+   
+   # Optional: Broker Integrations
+   ZERODHA_CLIENT_ID="your-zerodha-api-key"
+   ZERODHA_CLIENT_SECRET="your-zerodha-api-secret"
+   UPSTOX_CLIENT_ID="your-upstox-client-id"
+   UPSTOX_CLIENT_SECRET="your-upstox-client-secret"
    ```
 
 4. Set up the database
@@ -84,6 +90,10 @@ This application has been updated with critical production-ready features:
    ```
 
 6. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+## Broker Integration Setup
+
+For detailed instructions on setting up broker integrations (Zerodha, Upstox, Angel One, etc.), see [BROKER_SETUP.md](./BROKER_SETUP.md).
 
 ## Database Configuration
 
@@ -175,4 +185,3 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Chart visualizations powered by Chart.js
 
 # Updated for deployment
-

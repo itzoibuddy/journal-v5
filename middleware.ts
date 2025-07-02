@@ -28,7 +28,7 @@ export function middleware(request: NextRequest) {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: https: blob:",
-      "connect-src 'self' https://api.vercel.com https://vercel.live wss://ws-us3.pusher.com",
+      "connect-src 'self' https://api.vercel.com https://vercel.live wss://ws-us3.pusher.com https://kite.trade https://api.kite.trade https://apiconnect.angelbroking.com https://api.upstox.com https://smartapi.angelbroking.com",
       "frame-src 'none'",
       "object-src 'none'",
       "base-uri 'self'",
