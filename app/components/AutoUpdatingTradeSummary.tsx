@@ -135,7 +135,7 @@ export default function AutoUpdatingTradeSummary({ trades, componentId = 'trade-
         const platformMap = new Map<string, { trades: number; profit: number; wins: number; total: number }>();
         
         completedTrades.forEach(trade => {
-          const platform = trade.platform || 'Manual';
+          const platform = trade.isSynced ? 'Synced' : 'Manual';
           const current = platformMap.get(platform) || { trades: 0, profit: 0, wins: 0, total: 0 };
           current.trades += 1;
           current.profit += trade.profitLoss!;

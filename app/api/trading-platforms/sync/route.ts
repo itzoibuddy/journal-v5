@@ -62,7 +62,12 @@ export async function POST(request: NextRequest) {
     // If testOnly is true, just test the connection and return results
     if (testOnly) {
       console.log('Test-only mode: Testing connections without syncing trades');
-      const testResults = [];
+      const testResults: {
+        platform: string;
+        success: any;
+        message: any;
+        details: any;
+      }[] = [];
       
       for (const account of accounts) {
         try {
