@@ -1,3 +1,4 @@
+import './lib/disableConsoleInProd';
 import type { Metadata } from "next";
 import "./globals.css";
 import ChartRegistry from "./components/ChartRegistry";
