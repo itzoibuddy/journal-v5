@@ -4,6 +4,9 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   poweredByHeader: false,
+  compiler: {
+    removeConsole: true,
+  },
   
   // Production security headers
   async headers() {
