@@ -3,4 +3,3 @@ if (process.env.NODE_ENV === 'production') {
     // @ts-ignore
     console[method] = () => {};
   });
-}
