@@ -148,6 +148,7 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
       const pairedTrades: PlatformTrade[] = [];
       
       Object.keys(tradesBySymbol).forEach(symbol => {
+        const optionDetails = this.parseOptionDetails(symbol);
         const symbolTrades = tradesBySymbol[symbol];
         const buyTrades = symbolTrades.filter((t: any) => t.transaction_type === 'BUY');
         const sellTrades = symbolTrades.filter((t: any) => t.transaction_type === 'SELL');
@@ -203,7 +204,7 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
             id: `${firstBuyTrade.trade_id}_${firstSellTrade.trade_id}`,
             symbol: symbol,
             type: 'LONG',
-            instrumentType: this.mapInstrumentType(firstBuyTrade.product),
+            instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstBuyTrade.product),
             entryPrice: parseFloat(averageBuyPrice.toFixed(2)),
             exitPrice: parseFloat(averageSellPrice.toFixed(2)),
             quantity: completedQuantity,
@@ -216,7 +217,9 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
             segment: firstBuyTrade.segment || 'EQ',
             productType: firstBuyTrade.product,
             orderType: firstBuyTrade.order_type || 'MARKET',
-            status: 'COMPLETE'
+            status: 'COMPLETE',
+            ...optionDetails,
+            rawData: { buy: firstBuyTrade, sell: firstSellTrade }
           };
           
           pairedTrades.push(pairedTrade);
@@ -228,7 +231,7 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
               id: `${firstBuyTrade.trade_id}_open`,
               symbol: symbol,
               type: 'LONG',
-              instrumentType: this.mapInstrumentType(firstBuyTrade.product),
+              instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstBuyTrade.product),
               entryPrice: parseFloat(averageBuyPrice.toFixed(2)),
               exitPrice: undefined,
               quantity: remainingQuantity,
@@ -241,7 +244,9 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
               segment: firstBuyTrade.segment || 'EQ',
               productType: firstBuyTrade.product,
               orderType: firstBuyTrade.order_type || 'MARKET',
-              status: 'OPEN'
+              status: 'OPEN',
+              ...optionDetails,
+              rawData: { buy: firstBuyTrade }
             };
             
             pairedTrades.push(openTrade);
@@ -253,7 +258,7 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
             id: `${firstBuyTrade.trade_id}_open`,
             symbol: symbol,
             type: 'LONG',
-            instrumentType: this.mapInstrumentType(firstBuyTrade.product),
+            instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstBuyTrade.product),
             entryPrice: parseFloat(averageBuyPrice.toFixed(2)),
             exitPrice: undefined,
             quantity: totalBuyQuantity,
@@ -266,7 +271,9 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
             segment: firstBuyTrade.segment || 'EQ',
             productType: firstBuyTrade.product,
             orderType: firstBuyTrade.order_type || 'MARKET',
-            status: 'OPEN'
+            status: 'OPEN',
+            ...optionDetails,
+            rawData: { buy: firstBuyTrade }
           };
           
           pairedTrades.push(openTrade);
@@ -277,7 +284,7 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
             id: `${firstSellTrade.trade_id}_short`,
             symbol: symbol,
             type: 'SHORT',
-            instrumentType: this.mapInstrumentType(firstSellTrade.product),
+            instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstSellTrade.product),
             entryPrice: parseFloat(averageSellPrice.toFixed(2)),
             exitPrice: undefined,
             quantity: totalSellQuantity,
@@ -290,7 +297,9 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
             segment: firstSellTrade.segment || 'EQ',
             productType: firstSellTrade.product,
             orderType: firstSellTrade.order_type || 'MARKET',
-            status: 'OPEN'
+            status: 'OPEN',
+            ...optionDetails,
+            rawData: { sell: firstSellTrade }
           };
           
           pairedTrades.push(shortTrade);
@@ -543,63 +552,33 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
     
     // Calculate P&L - try multiple approaches
     let profitLoss: number | undefined = undefined;
-    
-    // 1. Try to get P&L from the trade data directly
-    if (trade.pnl !== undefined && trade.pnl !== null) {
-      profitLoss = parseFloat(trade.pnl);
-    }
-    // 2. Try to get P&L from realized P&L
-    else if (trade.realized_pnl !== undefined && trade.realized_pnl !== null) {
-      profitLoss = parseFloat(trade.realized_pnl);
-    }
-    // 3. Try to get P&L from m2m (mark to market)
-    else if (trade.m2m !== undefined && trade.m2m !== null) {
-      profitLoss = parseFloat(trade.m2m);
-    }
-    // 4. Try to get P&L from unrealized P&L
-    else if (trade.unrealised !== undefined && trade.unrealised !== null) {
-      profitLoss = parseFloat(trade.unrealised);
-    }
-    // 5. If it's a completed trade (both buy and sell), calculate P&L
-    else if (trade.status === 'COMPLETE' && trade.exit_price !== undefined) {
-      const entryPrice = parseFloat(averagePrice) || 0;
-      const exitPrice = parseFloat(trade.exit_price) || 0;
-      const qty = parseFloat(quantity) || 0;
-      
-      if (isBuy) {
-        // For BUY trades, P&L = (exitPrice - entryPrice) * quantity
-        profitLoss = (exitPrice - entryPrice) * qty;
-      } else {
-        // For SELL trades, P&L = (entryPrice - exitPrice) * quantity
-        profitLoss = (entryPrice - exitPrice) * qty;
-      }
-    }
-    
-    // If still no P&L, set to 0 for now (will be calculated later from positions)
-    if (profitLoss === undefined || isNaN(profitLoss)) {
-      profitLoss = 0;
-    }
-    
-    // Determine if this is an open or closed trade
-    let status = trade.status || 'COMPLETE';
     let exitPrice: number | undefined = undefined;
     let exitDate: string | undefined = undefined;
+    let status: string = 'OPEN';
     
-    // If it's a BUY trade without a corresponding SELL, it's open
-    if (isBuy && !trade.exit_price) {
-      status = 'OPEN';
+    if (trade.pnl !== undefined) {
+      profitLoss = parseFloat(trade.pnl);
+      status = 'COMPLETED';
     }
-    // If it's a SELL trade, it should have an exit price
-    else if (!isBuy) {
-      exitPrice = parseFloat(averagePrice) || 0;
-      exitDate = timestamp;
+    
+    if (trade.exitPrice !== undefined) {
+      exitPrice = parseFloat(trade.exitPrice);
+      status = 'COMPLETED';
     }
+    
+    if (trade.exitDate !== undefined) {
+      exitDate = trade.exitDate;
+      status = 'COMPLETED';
+    }
+    
+    // Parse option details from symbol
+    const optionDetails = this.parseOptionDetails(symbol);
     
     const mappedTrade: PlatformTrade = {
       id: tradeId,
       symbol: symbol,
       type: isBuy ? 'LONG' : 'SHORT',
-      instrumentType: this.mapInstrumentType(product),
+      instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(product),
       entryPrice: parseFloat(averagePrice) || 0,
       exitPrice: exitPrice,
       quantity: parseFloat(quantity) || 0,
@@ -612,7 +591,9 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
       segment: trade.segment || 'EQ',
       productType: product,
       orderType: trade.order_type || 'MARKET',
-      status: status
+      status: status,
+      ...optionDetails,
+      rawData: trade
     };
     
     console.log('Zerodha mapped trade:', {
@@ -622,20 +603,26 @@ export class ZerodhaPlatform extends BaseTradingPlatform {
       exitPrice: mappedTrade.exitPrice,
       quantity: mappedTrade.quantity,
       profitLoss: mappedTrade.profitLoss,
-      status: mappedTrade.status
+      status: mappedTrade.status,
+      strikePrice: mappedTrade.strikePrice,
+      expiryDate: mappedTrade.expiryDate,
+      optionType: mappedTrade.optionType
     });
     
     return mappedTrade;
   }
 
-  private mapInstrumentType(product: string): 'STOCK' | 'FUTURES' | 'OPTIONS' {
-    switch (product?.toUpperCase()) {
-      case 'FUTURES':
-        return 'FUTURES';
-      case 'OPTIONS':
-        return 'OPTIONS';
-      default:
-        return 'STOCK';
+  protected mapInstrumentType(productType: string): 'STOCK' | 'FUTURES' | 'OPTIONS' {
+    const type = (productType || '').toUpperCase();
+    
+    if (productType === 'NFO-OPT' || type.includes('OPT')) {
+      return 'OPTIONS';
     }
+    
+    if (productType === 'NFO-FUT' || type.includes('FUT')) {
+      return 'FUTURES';
+    }
+    
+    return 'STOCK';
   }
 } 

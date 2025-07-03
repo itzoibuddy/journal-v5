@@ -420,6 +420,26 @@ export function parseOptionsSymbol(symbol: string): ParsedOptionsSymbol {
       }
     }
 
+    // --- Format-D : DDMMMYY (daily, e.g. 03JUL25) -----------------------------
+    if (!expiryDate) {
+      const dayMonthYearMatch = remaining.match(/^(\d{2})([A-Z]{3})(\d{2})(\d+)$/);
+      if (dayMonthYearMatch) {
+        const dayPart = parseInt(dayMonthYearMatch[1]);
+        const monthAbbr = dayMonthYearMatch[2];
+        const yearPart = parseInt(dayMonthYearMatch[3]);
+        strikePart = dayMonthYearMatch[4];
+
+        const monthIdx = monthMap[monthAbbr as keyof typeof monthMap];
+        if (monthIdx === undefined) {
+          result.error = `Invalid month abbreviation: ${monthAbbr}`;
+          return result;
+        }
+
+        const year = 2000 + yearPart;
+        expiryDate = new Date(year, monthIdx, dayPart);
+      }
+    }
+
     if (!expiryDate) {
       result.error = `Unrecognized expiry/strike format: ${remaining}`;
       return result;

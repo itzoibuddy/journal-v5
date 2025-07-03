@@ -20,6 +20,9 @@ export interface PlatformTrade {
   productType?: string;
   orderType?: string;
   status?: string;
+  
+  // Raw data from the broker platform for reference/debugging
+  rawData?: any;
 }
 
 export interface PlatformCredentials {
@@ -71,6 +74,47 @@ export abstract class BaseTradingPlatform {
   }
   
   protected abstract makeRequest(endpoint: string, method: string, data?: any): Promise<any>;
+
+  // Helper method to extract option details from symbol
+  protected parseOptionDetails(symbol: string): { 
+    strikePrice?: number, 
+    expiryDate?: string, 
+    optionType?: 'CALL' | 'PUT' 
+  } {
+    try {
+      // Import here to avoid circular dependencies
+      const { parseOptionsSymbol, isOptionsSymbol } = require('../symbolParser');
+      
+      if (!symbol || !isOptionsSymbol(symbol)) {
+        return {};
+      }
+      
+      const parsed = parseOptionsSymbol(symbol);
+      if (parsed.isValid) {
+        return {
+          strikePrice: parsed.strike,
+          expiryDate: parsed.expiry.toISOString(),
+          optionType: parsed.optionType === 'CE' || parsed.optionType === 'CALL' ? 'CALL' : 'PUT'
+        };
+      }
+      return {};
+    } catch (error) {
+      console.error('Error parsing option details:', error);
+      return {};
+    }
+  }
+
+  // Helper method to map instrument type
+  protected mapInstrumentType(productType: string): 'STOCK' | 'FUTURES' | 'OPTIONS' {
+    const type = (productType || '').toUpperCase();
+    if (type.includes('OPT') || type.includes('CE') || type.includes('PE')) {
+      return 'OPTIONS';
+    }
+    if (type.includes('FUT')) {
+      return 'FUTURES';
+    }
+    return 'STOCK';
+  }
 
   async syncTrades(startDate?: Date, endDate?: Date): Promise<SyncResult> {
     try {

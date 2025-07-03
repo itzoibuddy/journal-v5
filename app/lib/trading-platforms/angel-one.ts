@@ -665,11 +665,13 @@ export class AngelOnePlatform extends BaseTradingPlatform {
             const tradeDate = new Date(baseDate);
             tradeDate.setDate(tradeDate.getDate() - index); // Spread trades over the last few days
             
+            const optionDetails = this.parseOptionDetails(holding.tradingsymbol);
+
             return {
-              id: `angel_one_holding_${holding.tradingsymbol}_${holding.isin}`, // Use ISIN for uniqueness
+              id: `angel_one_holding_${holding.tradingsymbol}_${holding.isin}`,
               symbol: holding.tradingsymbol,
               type: 'LONG' as const,
-              instrumentType: 'STOCK' as const,
+              instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(holding.product),
               entryPrice: parseFloat(holding.averageprice),
               quantity: parseFloat(holding.quantity),
               entryDate: tradeDate.toISOString(),
@@ -681,7 +683,9 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               segment: undefined,
               productType: holding.product,
               orderType: undefined,
-              status: 'COMPLETED'
+              status: 'COMPLETED',
+              ...optionDetails,
+              rawData: { holding }
             };
           });
           
@@ -754,8 +758,41 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               instrumentType: this.mapInstrumentType(buyTrade.producttype),
               entryPrice: parseFloat(buyTrade.fillprice),
               quantity: parseFloat(buyTrade.fillsize),
-              entryDate: this.parseAngelOneDate(buyTrade.filltime)?.toISOString() || new Date().toISOString(),
+              entryDate: (() => {
+                if (buyTrade.filltime && buyTrade.orderid && /^[0-9]{6}/.test(buyTrade.orderid)) {
+                  const yy = parseInt(buyTrade.orderid.substring(0, 2), 10);
+                  const mm = parseInt(buyTrade.orderid.substring(2, 4), 10);
+                  const dd = parseInt(buyTrade.orderid.substring(4, 6), 10);
+                  if (!isNaN(yy) && !isNaN(mm) && !isNaN(dd)) {
+                    const yyyy = 2000 + yy;
+                    const datePart = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+                    return `${datePart}T${buyTrade.filltime}`;
+                  }
+                }
+                if (buyTrade.filltime) {
+                  const todayPart = new Date().toISOString().split('T')[0];
+                  return `${todayPart}T${buyTrade.filltime}`;
+                }
+                return new Date().toISOString();
+              })(),
               exitPrice: parseFloat(sellTrade.fillprice),
+              exitDate: (() => {
+                if (sellTrade.filltime && sellTrade.orderid && /^[0-9]{6}/.test(sellTrade.orderid)) {
+                  const yy = parseInt(sellTrade.orderid.substring(0, 2), 10);
+                  const mm = parseInt(sellTrade.orderid.substring(2, 4), 10);
+                  const dd = parseInt(sellTrade.orderid.substring(4, 6), 10);
+                  if (!isNaN(yy) && !isNaN(mm) && !isNaN(dd)) {
+                    const yyyy = 2000 + yy;
+                    const datePart = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+                    return `${datePart}T${sellTrade.filltime}`;
+                  }
+                }
+                if (sellTrade.filltime) {
+                  const todayPart = new Date().toISOString().split('T')[0];
+                  return `${todayPart}T${sellTrade.filltime}`;
+                }
+                return undefined;
+              })(),
               profitLoss: (parseFloat(sellTrade.fillprice) - parseFloat(buyTrade.fillprice)) * parseFloat(buyTrade.fillsize),
               orderId: buyTrade.orderid,
               tradeId: `angel_one_${buyTrade.fillid}_${sellTrade.fillid}`,
@@ -763,7 +800,9 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               segment: undefined,
               productType: buyTrade.producttype,
               orderType: undefined,
-              status: 'COMPLETED'
+              status: 'COMPLETED',
+              ...this.parseOptionDetails(buyTrade.tradingsymbol),
+              rawData: { buy: buyTrade, sell: sellTrade }
             };
             
             trades.push(trade);
@@ -781,8 +820,25 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               instrumentType: this.mapInstrumentType(buyTrade.producttype),
               entryPrice: parseFloat(buyTrade.fillprice),
               quantity: parseFloat(buyTrade.fillsize),
-              entryDate: this.parseAngelOneDate(buyTrade.filltime)?.toISOString() || new Date().toISOString(),
+              entryDate: (() => {
+                if (buyTrade.filltime && buyTrade.orderid && /^[0-9]{6}/.test(buyTrade.orderid)) {
+                  const yy = parseInt(buyTrade.orderid.substring(0, 2), 10);
+                  const mm = parseInt(buyTrade.orderid.substring(2, 4), 10);
+                  const dd = parseInt(buyTrade.orderid.substring(4, 6), 10);
+                  if (!isNaN(yy) && !isNaN(mm) && !isNaN(dd)) {
+                    const yyyy = 2000 + yy;
+                    const datePart = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+                    return `${datePart}T${buyTrade.filltime}`;
+                  }
+                }
+                if (buyTrade.filltime) {
+                  const todayPart = new Date().toISOString().split('T')[0];
+                  return `${todayPart}T${buyTrade.filltime}`;
+                }
+                return new Date().toISOString();
+              })(),
               exitPrice: undefined,
+              exitDate: undefined,
               profitLoss: undefined,
               orderId: buyTrade.orderid,
               tradeId: buyTrade.fillid,
@@ -790,7 +846,9 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               segment: undefined,
               productType: buyTrade.producttype,
               orderType: undefined,
-              status: 'OPEN'
+              status: 'OPEN',
+              ...this.parseOptionDetails(buyTrade.tradingsymbol),
+              rawData: { buy: buyTrade }
             };
             
             trades.push(trade);
@@ -1073,12 +1131,15 @@ export class AngelOnePlatform extends BaseTradingPlatform {
   }
 
   private parseAngelOneDate(dateStr: string): Date | null {
-    // Angel One format: "24-Jun-2025 12:38:10"
+    // Angel One sometimes sends timestamps in the form "24-Jun-2025 12:38:10"
     if (!dateStr) return null;
     const match = dateStr.match(/^(\d{2})-([A-Za-z]{3})-(\d{4}) (\d{2}):(\d{2}):(\d{2})$/);
     if (!match) return null;
-    const [ , day, mon, year, hour, min, sec ] = match;
-    const months = { Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06', Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12' };
+    const [, day, mon, year, hour, min, sec] = match;
+    const months: Record<string, string> = {
+      Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+      Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+    };
     const month = months[mon];
     if (!month) return null;
     return new Date(`${year}-${month}-${day}T${hour}:${min}:${sec}`);
@@ -1088,15 +1149,6 @@ export class AngelOnePlatform extends BaseTradingPlatform {
     console.log('AngelOne raw trade:', trade);
     const isBuy = trade.transactiontype === 'BUY';
     const isSell = trade.transactiontype === 'SELL';
-    // Use filltime for entryDate (combine with a fallback date, e.g., today)
-    const today = new Date();
-    let dateStr = '';
-    if (trade.filltime) {
-      // Format: '12:48:01' -> 'YYYY-MM-DDTHH:mm:ss'
-      const datePart = today.toISOString().split('T')[0];
-      dateStr = `${datePart}T${trade.filltime}`;
-    }
-
     // Calculate P&L if not provided by the platform
     let calculatedProfitLoss: number | undefined = undefined;
     
@@ -1120,15 +1172,50 @@ export class AngelOnePlatform extends BaseTradingPlatform {
       }
     }
 
+    const optionDetails = this.parseOptionDetails(trade.tradingsymbol);
+
     return {
       id: trade.orderid,
       symbol: trade.tradingsymbol,
       type: trade.transactiontype === 'BUY' ? 'LONG' : 'SHORT',
-      instrumentType: this.mapInstrumentType(trade.producttype),
+      instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(trade.producttype),
       entryPrice: parseFloat(trade.fillprice) || 0,
       quantity: parseFloat(trade.fillsize) || 0,
-      entryDate: dateStr,
+      entryDate: (() => {
+        if (trade.filltime && trade.orderid && /^[0-9]{6}/.test(trade.orderid)) {
+          const yy = parseInt(trade.orderid.substring(0, 2), 10);
+          const mm = parseInt(trade.orderid.substring(2, 4), 10);
+          const dd = parseInt(trade.orderid.substring(4, 6), 10);
+          if (!isNaN(yy) && !isNaN(mm) && !isNaN(dd)) {
+            const yyyy = 2000 + yy;
+            const datePart = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+            return `${datePart}T${trade.filltime}`;
+          }
+        }
+        if (trade.filltime) {
+          const todayPart = new Date().toISOString().split('T')[0];
+          return `${todayPart}T${trade.filltime}`;
+        }
+        return new Date().toISOString();
+      })(),
       exitPrice: trade.exitPrice !== undefined ? parseFloat(trade.exitPrice) : undefined,
+      exitDate: (() => {
+        if (trade.filltime && trade.orderid && /^[0-9]{6}/.test(trade.orderid)) {
+          const yy = parseInt(trade.orderid.substring(0, 2), 10);
+          const mm = parseInt(trade.orderid.substring(2, 4), 10);
+          const dd = parseInt(trade.orderid.substring(4, 6), 10);
+          if (!isNaN(yy) && !isNaN(mm) && !isNaN(dd)) {
+            const yyyy = 2000 + yy;
+            const datePart = `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+            return `${datePart}T${trade.filltime}`;
+          }
+        }
+        if (trade.filltime) {
+          const todayPart = new Date().toISOString().split('T')[0];
+          return `${todayPart}T${trade.filltime}`;
+        }
+        return undefined;
+      })(),
       profitLoss: calculatedProfitLoss,
       orderId: trade.orderid,
       tradeId: trade.fillid,
@@ -1136,19 +1223,24 @@ export class AngelOnePlatform extends BaseTradingPlatform {
       segment: undefined,
       productType: trade.producttype,
       orderType: undefined,
-      status: trade.status
+      status: trade.status,
+      ...optionDetails,
+      rawData: trade
     };
   }
 
-  private mapInstrumentType(productType: string): 'STOCK' | 'FUTURES' | 'OPTIONS' {
-    switch (productType?.toUpperCase()) {
-      case 'FUTURES':
-        return 'FUTURES';
-      case 'OPTIONS':
-        return 'OPTIONS';
-      default:
-        return 'STOCK';
+  protected mapInstrumentType(productType: string): 'STOCK' | 'FUTURES' | 'OPTIONS' {
+    const type = (productType || '').toUpperCase();
+    
+    if (type.includes('OPT') || type.includes('CE') || type.includes('PE')) {
+      return 'OPTIONS';
     }
+    
+    if (type.includes('FUT')) {
+      return 'FUTURES';
+    }
+    
+    return 'STOCK';
   }
 
   // Try to get trades from completed orders

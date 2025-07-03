@@ -104,6 +104,7 @@ export class UpstoxPlatform extends BaseTradingPlatform {
 
       const pairedTrades: PlatformTrade[] = [];
       Object.keys(tradesBySymbol).forEach(symbol => {
+        const optionDetails = this.parseOptionDetails(symbol);
         const symbolTrades = tradesBySymbol[symbol];
         const buyTrades = symbolTrades.filter((t: any) => (t.transaction_type || t.type)?.toUpperCase() === 'BUY');
         const sellTrades = symbolTrades.filter((t: any) => (t.transaction_type || t.type)?.toUpperCase() === 'SELL');
@@ -141,18 +142,20 @@ export class UpstoxPlatform extends BaseTradingPlatform {
             id: `${firstBuyTrade.order_id || firstBuyTrade.trade_id}_${firstSellTrade.order_id || firstSellTrade.trade_id}`,
             symbol: symbol,
             type: 'LONG',
-            instrumentType: firstBuyTrade.segment || 'STOCK',
+            instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstBuyTrade.segment || ''),
             entryPrice: parseFloat(averageBuyPrice.toFixed(2)),
             exitPrice: parseFloat(averageSellPrice.toFixed(2)),
             quantity: completedQuantity,
-            entryDate: firstBuyTrade.exchange_timestamp || firstBuyTrade.order_timestamp || new Date().toISOString(),
-            exitDate: firstSellTrade.exchange_timestamp || firstSellTrade.order_timestamp || new Date().toISOString(),
+            entryDate: this.parseTradeTimestamp(firstBuyTrade),
+            exitDate: this.parseTradeTimestamp(firstSellTrade),
             profitLoss: parseFloat(actualPL.toFixed(2)),
             orderId: `${firstBuyTrade.order_id}_${firstSellTrade.order_id}`,
             tradeId: `${firstBuyTrade.trade_id || firstBuyTrade.order_id}_${firstSellTrade.trade_id || firstSellTrade.order_id}`,
             exchange: firstBuyTrade.exchange,
             segment: firstBuyTrade.segment,
-            status: 'COMPLETE'
+            status: 'COMPLETE',
+            ...optionDetails,
+            rawData: { buy: firstBuyTrade, sell: firstSellTrade }
           };
           pairedTrades.push(pairedTrade);
 
@@ -163,15 +166,17 @@ export class UpstoxPlatform extends BaseTradingPlatform {
               id: `${firstBuyTrade.order_id || firstBuyTrade.trade_id}_open`,
               symbol: symbol,
               type: 'LONG',
-              instrumentType: firstBuyTrade.segment || 'STOCK',
+              instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstBuyTrade.segment || ''),
               entryPrice: parseFloat(averageBuyPrice.toFixed(2)),
               quantity: remainingQuantity,
-              entryDate: firstBuyTrade.exchange_timestamp || firstBuyTrade.order_timestamp || new Date().toISOString(),
+              entryDate: this.parseTradeTimestamp(firstBuyTrade),
               orderId: firstBuyTrade.order_id,
               tradeId: firstBuyTrade.trade_id,
               exchange: firstBuyTrade.exchange,
               segment: firstBuyTrade.segment,
-              status: 'OPEN'
+              status: 'OPEN',
+              ...optionDetails,
+              rawData: { buy: firstBuyTrade }
             };
             pairedTrades.push(openTrade);
           }
@@ -182,15 +187,17 @@ export class UpstoxPlatform extends BaseTradingPlatform {
             id: `${firstBuyTrade.order_id || firstBuyTrade.trade_id}_open`,
             symbol: symbol,
             type: 'LONG',
-            instrumentType: firstBuyTrade.segment || 'STOCK',
+            instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstBuyTrade.segment || ''),
             entryPrice: parseFloat(averageBuyPrice.toFixed(2)),
             quantity: totalBuyQuantity,
-            entryDate: firstBuyTrade.exchange_timestamp || firstBuyTrade.order_timestamp || new Date().toISOString(),
+            entryDate: this.parseTradeTimestamp(firstBuyTrade),
             orderId: firstBuyTrade.order_id,
             tradeId: firstBuyTrade.trade_id,
             exchange: firstBuyTrade.exchange,
             segment: firstBuyTrade.segment,
-            status: 'OPEN'
+            status: 'OPEN',
+            ...optionDetails,
+            rawData: { buy: firstBuyTrade }
           };
           pairedTrades.push(openTrade);
         } else if (totalSellQuantity > 0) {
@@ -200,15 +207,17 @@ export class UpstoxPlatform extends BaseTradingPlatform {
             id: `${firstSellTrade.order_id || firstSellTrade.trade_id}_short`,
             symbol: symbol,
             type: 'SHORT',
-            instrumentType: firstSellTrade.segment || 'STOCK',
+            instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(firstSellTrade.segment || ''),
             entryPrice: parseFloat(averageSellPrice.toFixed(2)),
             quantity: totalSellQuantity,
-            entryDate: firstSellTrade.exchange_timestamp || firstSellTrade.order_timestamp || new Date().toISOString(),
+            entryDate: this.parseTradeTimestamp(firstSellTrade),
             orderId: firstSellTrade.order_id,
             tradeId: firstSellTrade.trade_id,
             exchange: firstSellTrade.exchange,
             segment: firstSellTrade.segment,
-            status: 'OPEN'
+            status: 'OPEN',
+            ...optionDetails,
+            rawData: { sell: firstSellTrade }
           };
           pairedTrades.push(shortTrade);
         }
@@ -498,5 +507,83 @@ export class UpstoxPlatform extends BaseTradingPlatform {
       console.error('Upstox API request failed:', error);
       throw error;
     }
+  }
+
+  protected mapInstrumentType(productType: string): 'STOCK' | 'FUTURES' | 'OPTIONS' {
+    const type = (productType || '').toUpperCase();
+    
+    // Upstox specific segment/product mappings
+    if (type.includes('OPT') || type.includes('CE') || type.includes('PE') || type === 'NFO') {
+      return 'OPTIONS';
+    }
+    
+    if (type.includes('FUT')) {
+      return 'FUTURES';
+    }
+    
+    return 'STOCK';
+  }
+
+  private parseTradeTimestamp(trade: any): string {
+    /**
+     * Upstox trades can arrive with multiple possible timestamp fields depending on
+     * which endpoint is used (trades-for-day, order book etc.).
+     * 1. Prefer explicit timestamp fields if they are present and valid.
+     * 2. If no full timestamp is available, derive the *date* portion from the
+     *    YYMMDD prefix of the order_id (Upstox embeds trade date in order id just
+     *    like Angel One) and the *time* portion from any fill/time field.
+     * 3. Fall back to the current time – this should be extremely rare.
+     */
+    const potentialFields = [
+      trade.exchange_timestamp,
+      trade.order_timestamp,
+      trade.trade_timestamp,
+      trade.timestamp,
+      trade.filled_at,
+      trade.fill_timestamp,
+    ];
+
+    for (const ts of potentialFields) {
+      if (ts) {
+        const parsed = new Date(ts);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString();
+        }
+      }
+    }
+
+    // Derive date from order_id (first 6 digits ⇒ YYMMDD)
+    const orderId: string | undefined = trade.order_id || trade.trade_id;
+    if (orderId && /^\d{6}/.test(orderId)) {
+      const idDate = orderId.substring(0, 6); // YYMMDD
+      const year = 2000 + parseInt(idDate.substring(0, 2), 10);
+      const month = parseInt(idDate.substring(2, 4), 10) - 1; // zero-based in JS
+      const day = parseInt(idDate.substring(4, 6), 10);
+
+      // Attempt to get a fill time (HH:mm[:ss])
+      const timeCandidates = [
+        trade.fill_time,
+        trade.filltimestamp,
+        trade.filled_time,
+        trade.updatedTime,
+      ];
+      let hours = 0, minutes = 0, seconds = 0;
+      for (const t of timeCandidates) {
+        if (typeof t === 'string' && /^\d{1,2}:\d{2}(:\d{2})?$/.test(t.trim())) {
+          const parts = t.trim().split(':');
+          hours = parseInt(parts[0], 10);
+          minutes = parseInt(parts[1], 10);
+          seconds = parts[2] ? parseInt(parts[2], 10) : 0;
+          break;
+        }
+      }
+      // Construct the date in the **local** timezone so that the hours/minutes
+      // map directly to what the user sees on contract notes / Upstox UI.
+      const derivedLocal = new Date(year, month, day, hours, minutes, seconds);
+      return derivedLocal.toISOString();
+    }
+
+    // Fallback – now()
+    return new Date().toISOString();
   }
 } 
