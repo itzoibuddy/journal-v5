@@ -18,6 +18,7 @@ import {
   Filler,
 } from 'chart.js';
 import { Trade } from './types/Trade';
+import Image from "next/image";
 
 ChartJS.register(
   CategoryScale,
@@ -152,8 +153,11 @@ export default function HomePage() {
         <div className="container mx-auto px-6 py-16">
           {/* Hero Section */}
           <div className="text-center mb-16">
-            <h1 className="text-5xl lg:text-6xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent mb-6">
-              📊 Trading Journal
+            <h1 className="text-5xl lg:text-6xl font-bold leading-[1.8] pt-8 pb-12 mb-8 flex items-center justify-center gap-4 overflow-visible">
+              <div className="w-16 h-16 lg:w-20 lg:h-20 bg-gradient-to-br from-slate-300/10 via-blue-400/15 to-indigo-500/20 backdrop-blur-sm rounded-2xl border border-white/20 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <Image src="/logo.png" alt="TradingTrac logo" width={40} height={40} className="w-10 h-10 lg:w-12 lg:h-12" />
+              </div>
+              <span className="font-inter font-bold tracking-tight bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent overflow-visible py-2">TradingTrac</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
               Professional trading analytics platform to track, analyze, and optimize your trading performance

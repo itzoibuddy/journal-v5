@@ -70,8 +70,10 @@ function HeaderContent() {
           {/* Logo/Brand */}
           <div className="flex items-center flex-shrink-0">
             <Link href="/" aria-label="TradingTrac Home" className="flex items-center space-x-2 group">
-              <Image src="/tradingtrac-logo.png" alt="TradingTrac logo" width={36} height={36} priority className="h-9 w-9" />
-              <span className="ml-3 text-2xl lg:text-3xl font-plus font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">TradingTrac</span>
+              <div className="w-9 h-9 bg-gradient-to-br from-slate-300/10 via-blue-400/15 to-indigo-500/20 backdrop-blur-sm rounded-xl border border-white/20 flex items-center justify-center shadow-md shadow-indigo-500/30">
+                <Image src="/logo.png" alt="TradingTrac logo" width={20} height={20} className="w-5 h-5" />
+              </div>
+              <span className="ml-3 text-2xl lg:text-3xl font-inter font-bold tracking-tight bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent group-hover:from-indigo-600 group-hover:to-blue-700 transition-all">TradingTrac</span>
             </Link>
           </div>
 
