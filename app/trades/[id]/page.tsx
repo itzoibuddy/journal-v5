@@ -64,9 +64,17 @@ export default function TradeDetailsPage() {
 
   const formatDate = (dateString: string | Date | null | undefined) => {
     if (!dateString) return 'No date';
+    const originalInputWasUTC = typeof dateString === 'string' && dateString.endsWith('Z');
     const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-IN', {
+
+    // If the input string was explicitly in UTC (ends with 'Z'), shift the date so that it
+    // reflects the same clock time in the user's local timezone (i.e., remove the offset).
+    const adjustedDate = originalInputWasUTC
+      ? new Date(date.getTime() + date.getTimezoneOffset() * 60000)
+      : date;
+
+    return adjustedDate.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
