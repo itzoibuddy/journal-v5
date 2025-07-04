@@ -34,6 +34,27 @@ const formatCurrency = (value: number | null | undefined): string => {
   return value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// Ensure entryDate displays the exact stored clock time even if the ISO string is UTC
+const adjustDatePreservingClockTime = (value: string | Date | null | undefined): Date | null => {
+  if (!value) return null;
+  const originalInputWasUTC = typeof value === 'string' && value.endsWith('Z');
+  const dateObj = typeof value === 'string' ? new Date(value) : value;
+  if (isNaN(dateObj.getTime())) return null;
+  return originalInputWasUTC ? new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000) : dateObj;
+};
+
+const formatEntryDate = (value: string | Date | null | undefined) => {
+  const adjusted = adjustDatePreservingClockTime(value);
+  if (!adjusted) return 'Invalid date';
+  return adjusted.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatEntryTime = (value: string | Date | null | undefined) => {
+  const adjusted = adjustDatePreservingClockTime(value);
+  if (!adjusted) return '--';
+  return adjusted.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+};
+
 // Memoized trade type icon
 const TradeTypeIcon = memo(({ type }: { type: 'LONG' | 'SHORT' }) => 
   type === 'LONG' ? (
@@ -80,17 +101,10 @@ const TradeRow = memo(({ trade, globalIndex, visibleColumns, onEdit, onDelete, o
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <div className="flex flex-col">
             <span className="text-gray-900 font-semibold">
-              {new Date(trade.entryDate).toLocaleDateString('en-IN', { 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric'
-              })}
+              {formatEntryDate(trade.entryDate)}
             </span>
             <span className="text-xs text-gray-500">
-              {new Date(trade.entryDate).toLocaleTimeString('en-IN', { 
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
+              {formatEntryTime(trade.entryDate)}
             </span>
           </div>
         </td>

@@ -44,6 +44,29 @@ const tradeTypeIcon = (type: 'LONG' | 'SHORT') =>
     <svg className="h-5 w-5 text-red-500 inline-block mr-1" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
   );
 
+// Utility functions to ensure we display the same clock time that was saved, even if the
+// original timestamp string was stored in UTC (i.e., ends with a trailing "Z"). We remove
+// the timezone offset so the rendered time equals the stored clock time.
+const adjustDatePreservingClockTime = (value: string | Date | null | undefined): Date | null => {
+  if (!value) return null;
+  const originalInputWasUTC = typeof value === 'string' && value.endsWith('Z');
+  const dateObj = typeof value === 'string' ? new Date(value) : value;
+  if (isNaN(dateObj.getTime())) return null;
+  return originalInputWasUTC ? new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000) : dateObj;
+};
+
+const formatEntryDate = (value: string | Date | null | undefined) => {
+  const adjusted = adjustDatePreservingClockTime(value);
+  if (!adjusted) return 'Invalid date';
+  return adjusted.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const formatEntryTime = (value: string | Date | null | undefined) => {
+  const adjusted = adjustDatePreservingClockTime(value);
+  if (!adjusted) return '--';
+  return adjusted.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+};
+
 interface TradeTableProps {
   trades: Trade[];
   onEdit: (index: number) => void;
@@ -524,17 +547,10 @@ export default function TradeTable({ trades, onEdit, onDelete, onViewDetails, is
                         <td className="sticky left-0 z-10 px-6 py-4 whitespace-nowrap text-sm font-medium bg-inherit border-r border-indigo-200">
                           <div className="flex flex-col">
                             <span className="text-gray-900 font-semibold">
-                              {new Date(trade.entryDate).toLocaleDateString('en-IN', { 
-                                day: '2-digit', 
-                                month: '2-digit', 
-                                year: 'numeric'
-                              })}
+                              {formatEntryDate(trade.entryDate)}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {new Date(trade.entryDate).toLocaleTimeString('en-IN', { 
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
+                              {formatEntryTime(trade.entryDate)}
                             </span>
                           </div>
                         </td>
