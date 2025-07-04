@@ -369,20 +369,27 @@ export function parseOptionsSymbol(symbol: string): ParsedOptionsSymbol {
 
     // --- Format-C : YYMWW (weekly, e.g. 25701) ------------------------------------
     if (!expiryDate) {
-      const weeklyMatch = remaining.match(/^(\d{2})(\d)(\d{2})(\d+)$/); // YY M WW strike
+      const weeklyMatch = remaining.match(/^(\d{2})(\d)(\d{2})(\d+)$/); // YY M WW|DD strike
       if (weeklyMatch) {
         const yearPart = weeklyMatch[1];
         const monthDigit = parseInt(weeklyMatch[2]);
-        const weekPartStr = weeklyMatch[3];
-        const weekNumber = parseInt(weekPartStr);
+        const twoDigitSegment = weeklyMatch[3];
         strikePart = weeklyMatch[4];
 
         const year = 2000 + parseInt(yearPart);
         const monthIdx = monthDigit - 1; // 0-indexed
 
-        if (monthIdx < 0 || monthIdx > 11 || weekNumber < 1 || weekNumber > 5) {
-          // Not a realistic weekly code – fall through to legacy
-        } else {
+        const numericSegment = parseInt(twoDigitSegment);
+
+        /*
+         * Older pattern interprets the 2-digit segment as week number (01-05).
+         * Many brokers (esp. Upstox / Zerodha CSV) have moved to encoding
+         * the *day of month* instead (e.g. 10 for 10-Jul-2025 → 25710).
+         * We treat values 06-31 as a calendar day; 01-05 remain week numbers
+         * for backward compatibility.
+         */
+        if (numericSegment >= 1 && numericSegment <= 5) {
+          // Treat as Nth weekday of the month (legacy behaviour)
           const expiryWeekdayMap: Record<string, number> = {
             SENSEX: 5, // Friday
             BANKEX: 5,
@@ -394,8 +401,12 @@ export function parseOptionsSymbol(symbol: string): ParsedOptionsSymbol {
           };
           const weekday = expiryWeekdayMap[result.underlying] ?? 4;
 
-          const nthWeek = weekNumber; // 1,2,3...
+          const nthWeek = numericSegment; // 1-5
           expiryDate = getNthWeekdayOfMonth(year, monthIdx, weekday, nthWeek);
+        } else if (numericSegment >= 6 && numericSegment <= 31) {
+          // Treat as explicit day-of-month
+          const dayOfMonth = numericSegment;
+          expiryDate = new Date(year, monthIdx, dayOfMonth);
         }
       }
     }
