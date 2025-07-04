@@ -1,6 +1,7 @@
 'use client'
 
 import Link from "next/link";
+import Image from "next/image";
 import UserMenu from "./UserMenu";
 import MobileMenu from "./MobileMenu";
 import { usePathname } from "next/navigation";
@@ -68,18 +69,9 @@ function HeaderContent() {
           
           {/* Logo/Brand */}
           <div className="flex items-center flex-shrink-0">
-            <Link href="/" className="flex items-center space-x-3 group" aria-label="Trading Journal Home">
-              <div className="w-10 h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-indigo-500/30 transition-all duration-300 group-hover:scale-105">
-                <span className="text-white font-bold text-lg lg:text-xl" aria-hidden="true">TJ</span>
-              </div>
-              <div className="hidden sm:block">
-                <span className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 bg-clip-text text-transparent">
-                  Trading Journal
-                </span>
-                <div className="text-xs text-gray-500 font-medium -mt-1">
-                  Professional Trading Platform
-                </div>
-              </div>
+            <Link href="/" aria-label="TradingTrac Home" className="flex items-center space-x-2 group">
+              <Image src="/tradingtrac-logo.png" alt="TradingTrac logo" width={36} height={36} priority className="h-9 w-9" />
+              <span className="ml-3 text-2xl lg:text-3xl font-plus font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors">TradingTrac</span>
             </Link>
           </div>
 

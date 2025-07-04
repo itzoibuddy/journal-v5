@@ -21,6 +21,16 @@ module.exports = {
           '100%': { opacity: '0', transform: 'translateY(10px)' },
         },
       },
+      colors: {
+        midnightNavy: '#1B1F3B',
+        neonGreen: '#00D084',
+        offWhite: '#F8F9FC',
+        charcoalBlack: '#2C2F49',
+      },
+      fontFamily: {
+        plus: ['"Plus Jakarta Sans"', 'sans-serif'],
+        inter: ['Inter', 'sans-serif'],
+      },
     },
   },
   plugins: [

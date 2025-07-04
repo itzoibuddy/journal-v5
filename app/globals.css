@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* NEW – import brand fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
 /* Enhanced focus styles for accessibility */
 @layer base {
   * {

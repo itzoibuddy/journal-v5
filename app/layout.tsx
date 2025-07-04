@@ -9,8 +9,8 @@ import ClientLayout from "./components/ClientLayout";
 import { GlobalToastManager } from "./components/Toast";
 
 export const metadata: Metadata = {
-  title: "Trading Journal",
-  description: "Track and analyze your trading performance",
+  title: "TradingTrac",
+  description: "Track and analyze your trading performance with TradingTrac",
 };
 
 export default function RootLayout({
