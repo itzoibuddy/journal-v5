@@ -116,6 +116,33 @@ export abstract class BaseTradingPlatform {
     return 'STOCK';
   }
 
+  // NEW: Unified helper to pick the correct instrument type taking symbol into account
+  protected resolveInstrumentType(
+    symbol: string,
+    productType: string,
+    optionDetails: { strikePrice?: number }
+  ): 'STOCK' | 'FUTURES' | 'OPTIONS' {
+    // If we already have strikePrice parsed, it is definitely an option
+    if (optionDetails && optionDetails.strikePrice !== undefined) {
+      return 'OPTIONS';
+    }
+
+    // Fall-back to symbol based detection using symbolParser helper
+    try {
+      const { detectInstrumentType } = require('../symbolParser');
+      const detected = detectInstrumentType(symbol);
+      if (detected === 'OPTIONS' || detected === 'FUTURES') {
+        return detected;
+      }
+    } catch (err) {
+      // If anything goes wrong, continue to productType based mapping
+      console.warn('resolveInstrumentType: failed symbol detection', err);
+    }
+
+    // Finally map from the broker product type string
+    return this.mapInstrumentType(productType);
+  }
+
   async syncTrades(startDate?: Date, endDate?: Date): Promise<SyncResult> {
     try {
       const isAuthenticated = await this.authenticate();

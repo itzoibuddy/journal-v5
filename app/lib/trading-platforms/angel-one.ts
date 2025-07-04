@@ -671,7 +671,7 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               id: `angel_one_holding_${holding.tradingsymbol}_${holding.isin}`,
               symbol: holding.tradingsymbol,
               type: 'LONG' as const,
-              instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(holding.product),
+              instrumentType: this.resolveInstrumentType(holding.symbol || holding.tradingsymbol || '', holding.product, optionDetails),
               entryPrice: parseFloat(holding.averageprice),
               quantity: parseFloat(holding.quantity),
               entryDate: tradeDate.toISOString(),
@@ -755,7 +755,7 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               id: `angel_one_${buyTrade.orderid}_${sellTrade.orderid}`,
               symbol: symbol,
               type: 'LONG',
-              instrumentType: this.mapInstrumentType(buyTrade.producttype),
+              instrumentType: this.resolveInstrumentType(buyTrade.tradingsymbol || '', buyTrade.producttype, this.parseOptionDetails(buyTrade.tradingsymbol)),
               entryPrice: parseFloat(buyTrade.fillprice),
               quantity: parseFloat(buyTrade.fillsize),
               entryDate: (() => {
@@ -817,7 +817,7 @@ export class AngelOnePlatform extends BaseTradingPlatform {
               id: `angel_one_${buyTrade.orderid}_open`,
               symbol: symbol,
               type: 'LONG',
-              instrumentType: this.mapInstrumentType(buyTrade.producttype),
+              instrumentType: this.resolveInstrumentType(buyTrade.tradingsymbol || '', buyTrade.producttype, this.parseOptionDetails(buyTrade.tradingsymbol)),
               entryPrice: parseFloat(buyTrade.fillprice),
               quantity: parseFloat(buyTrade.fillsize),
               entryDate: (() => {
@@ -1178,7 +1178,7 @@ export class AngelOnePlatform extends BaseTradingPlatform {
       id: trade.orderid,
       symbol: trade.tradingsymbol,
       type: trade.transactiontype === 'BUY' ? 'LONG' : 'SHORT',
-      instrumentType: optionDetails.strikePrice !== undefined ? 'OPTIONS' : this.mapInstrumentType(trade.producttype),
+      instrumentType: this.resolveInstrumentType(trade.tradingsymbol || '', trade.producttype, optionDetails),
       entryPrice: parseFloat(trade.fillprice) || 0,
       quantity: parseFloat(trade.fillsize) || 0,
       entryDate: (() => {
@@ -1728,5 +1728,19 @@ export class AngelOnePlatform extends BaseTradingPlatform {
         return false;
       }
     }
+  }
+
+  protected resolveInstrumentType(symbol: string, productType: string, optionDetails: any): 'STOCK' | 'FUTURES' | 'OPTIONS' {
+    const type = (productType || '').toUpperCase();
+    
+    if (type.includes('OPT') || type.includes('CE') || type.includes('PE')) {
+      return 'OPTIONS';
+    }
+    
+    if (type.includes('FUT')) {
+      return 'FUTURES';
+    }
+    
+    return 'STOCK';
   }
 } 
